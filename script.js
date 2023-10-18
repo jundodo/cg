@@ -3,6 +3,10 @@ import * as THREE from 'https://threejs.org/build/three.module.js';
 let scene, camera, renderer;
 let controlPoints = [];
 let curveObject;
+let newCurveObject;
+let addingNewPoints = false;
+let newControlPoints = [];
+
 
 init();
 animate();
@@ -25,6 +29,10 @@ function init() {
     // 마우스 클릭 이벤트 리스너 추가 
     window.addEventListener('click', onDocumentMouseDown, false);
     document.getElementById('resetButton').addEventListener('click', resetScene);
+    document.getElementById('newCurveButton').addEventListener('click', function() {
+        addingNewPoints = true;
+        removeExistingNewPoints();
+    });
 }
 
 function onDocumentMouseDown(event) {
@@ -34,13 +42,20 @@ function onDocumentMouseDown(event) {
         event.clientY >= rect.top && event.clientY <= rect.bottom) {
         return; // 버튼 영역 클릭 시 함수 종료
     }
+    const newButton = document.getElementById('newCurveButton');
+    const newct=newButton.getBoundingClientRect();
+    if (event.clientX >= newct.left && event.clientX <= newct.right &&
+        event.clientY >= newct.top && event.clientY <= newct.bottom) {
+        return; // 버튼 영역 클릭 시 함수 종료
+    }
+
     // 마우스 클릭 위치 계산
     const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
     const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
 
     // 점 (원) 생성
     const geometry = new THREE.CircleGeometry(5, 32);
-    const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const material = new THREE.MeshBasicMaterial({ color: addingNewPoints ? 0x0000ff : 0xff0000 }); // 새로운 점들의 색상 조절
     const circle = new THREE.Mesh(geometry, material);
     
     // 카메라를 사용하여 2D 환경에서의 마우스 위치로 점을 옮김
@@ -49,25 +64,45 @@ function onDocumentMouseDown(event) {
     // 점을 씬에 추가
     scene.add(circle);
 
-    controlPoints.push(circle.position);
+    // 점을 적절한 배열에 추가
+    if (addingNewPoints) {
+        newControlPoints.push(circle.position);
 
-    if (controlPoints.length >= 3) {
-        const curvePoints = [];
-        for (let u = 0; u <= controlPoints.length; u += 0.01) {
-            curvePoints.push(computeBSpline(controlPoints, u));
-        }
-
-        if (curveObject) {
-            scene.remove(curveObject); // 기존 곡선 제거
-        }
-
-        const curveGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
-        const curveMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-        curveObject = new THREE.Line(curveGeometry, curveMaterial);
-        scene.add(curveObject);
+    } else {
+        controlPoints.push(circle.position);
     }
+
+    //적절한 배열의 길이에 따라 B-spline 곡선 생성(기존)
+    if (addingNewPoints) {
+        if (newControlPoints.length >= 3) {
+            drawCurve(newControlPoints, 0xffff00, newCurveObject);
+        }
+    } else {
+        if (controlPoints.length >= 3) {
+            drawCurve(controlPoints, 0x00ff00, curveObject);
+        }
+    }
+    
 }
-function computeBSpline(controlPoints, u) {
+
+function drawCurve(points, color, curveObj) {        //기존
+    const curvePoints = [];
+    for (let u = 0; u <= points.length; u += 0.01) {
+        curvePoints.push(computeBSpline(points, u));
+    }
+
+    if (curveObj) {
+        scene.remove(curveObj); // 기존 곡선 제거
+    }
+
+    const curveGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+    const curveMaterial = new THREE.LineBasicMaterial({ color });
+    curveObj = new THREE.Line(curveGeometry, curveMaterial);
+    scene.add(curveObj);
+}
+
+
+function computeBSpline(controlPoints, u) { //기존!!
     const n = controlPoints.length - 1;
     let point = new THREE.Vector2();
 
@@ -87,6 +122,7 @@ function computeBSpline(controlPoints, u) {
     return point;
 }
 
+
 function N(i, k, u, knots) {
     if (k === 0) {
         return (u >= knots[i] && u < knots[i + 1]) ? 1 : 0;
@@ -101,27 +137,25 @@ function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
 }
-function resetScene() {
-    // 모든 컨트롤 포인트 제거
-    controlPoints.forEach(point => {
-        scene.remove(point);
-    });
-    controlPoints = [];
 
-    // 곡선 제거
-    if (curveObject) {
-        scene.remove(curveObject);
-        curveObject = null;
-    }
-    
-    //추가된 점들도 제거
-    let toRemove = [];
+function resetScene() {
+    // 컨트롤 포인트 배열들 초기화
+    controlPoints.length = 0;
+    newControlPoints.length = 0;
+
+    // scene에서 모든 Mesh와 Line 객체들 제거
+    const objectsToRemove = [];
     scene.children.forEach(object => {
-        if (object instanceof THREE.Mesh && object.geometry instanceof THREE.CircleGeometry) {
-            toRemove.push(object);
+        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+            objectsToRemove.push(object);
         }
     });
-    toRemove.forEach(object => {
-        scene.remove(object);
-    });
+    objectsToRemove.forEach(object => scene.remove(object));
+
+    // curve 객체들 null로 설정
+    curveObject = null;
+    newCurveObject = null;
+
+    // 새로운 컨트롤 포인트 추가 상태 해제
+    addingNewPoints = false;
 }
