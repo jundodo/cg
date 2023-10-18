@@ -3,13 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Click to Add Dot with Three.js</title>
+    <title>B-spline Curve</title>
     <style>
-        body { margin: 0; }
-        canvas { display: block; }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
-    <script type="module" src="script.js"></script>
+    <div id="controls">
+        <button id="resetButton">Reset Points and Curve</button>
+    </div>
+    <script type="module" src="./script.js"></script>
 </body>
 </html>

@@ -24,9 +24,16 @@ function init() {
 
     // 마우스 클릭 이벤트 리스너 추가 
     window.addEventListener('click', onDocumentMouseDown, false);
+    document.getElementById('resetButton').addEventListener('click', resetScene);
 }
 
 function onDocumentMouseDown(event) {
+    const resetButton = document.getElementById('resetButton');
+    const rect = resetButton.getBoundingClientRect();
+    if (event.clientX >= rect.left && event.clientX <= rect.right &&
+        event.clientY >= rect.top && event.clientY <= rect.bottom) {
+        return; // 버튼 영역 클릭 시 함수 종료
+    }
     // 마우스 클릭 위치 계산
     const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
     const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -93,4 +100,28 @@ function N(i, k, u, knots) {
 function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
+}
+function resetScene() {
+    // 모든 컨트롤 포인트 제거
+    controlPoints.forEach(point => {
+        scene.remove(point);
+    });
+    controlPoints = [];
+
+    // 곡선 제거
+    if (curveObject) {
+        scene.remove(curveObject);
+        curveObject = null;
+    }
+    
+    //추가된 점들도 제거
+    let toRemove = [];
+    scene.children.forEach(object => {
+        if (object instanceof THREE.Mesh && object.geometry instanceof THREE.CircleGeometry) {
+            toRemove.push(object);
+        }
+    });
+    toRemove.forEach(object => {
+        scene.remove(object);
+    });
 }
