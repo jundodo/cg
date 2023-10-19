@@ -9,6 +9,10 @@ let newControlPoints = [];
 let controlWeights=[];
 let newControlWeights=[];
 let curves=[];
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+let selectedObject = null;
+let isDragging = false;
 
 init();
 animate();
@@ -36,8 +40,39 @@ function init() {
         removeExistingNewPoints();
     });
 }
+window.addEventListener('mousemove', onDocumentMouseMove, false);
+window.addEventListener('mouseup', onDocumentMouseUp, false);
+function onDocumentMouseMove(event) {
+    event.preventDefault();
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    if (selectedObject) {
+        const intersects = raycaster.intersectObject(selectedObject);
+        if (intersects.length > 0) {
+            selectedObject.position.set(intersects[0].point.x, intersects[0].point.y, 0);
+            updateCurve();
+        }
+    }
+}
 
 function onDocumentMouseDown(event) {
+    event.preventDefault();
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(scene.children);
+
+    // 이미 존재하는 컨트롤 포인트 선택
+    if (intersects.length > 0 && (intersects[0].object.material.color.getHex() === 0xff0000 || intersects[0].object.material.color.getHex() === 0x0000ff)) {
+        selectedObject = intersects[0].object;
+        isDragging = true;
+        return;  // 선택된 점을 드래그하기 위해 나머지 코드 실행 중지
+    }
     const resetButton = document.getElementById('resetButton');
     const rect = resetButton.getBoundingClientRect();
     if (event.clientX >= rect.left && event.clientX <= rect.right &&
@@ -49,6 +84,11 @@ function onDocumentMouseDown(event) {
     if (event.clientX >= newct.left && event.clientX <= newct.right &&
         event.clientY >= newct.top && event.clientY <= newct.bottom) {
         return; // 버튼 영역 클릭 시 함수 종료
+    }
+
+    if (intersects.length > 0 && (intersects[0].object.material.color.getHex() === 0xff0000 || intersects[0].object.material.color.getHex() === 0x0000ff)) {
+        selectedObject = intersects[0].object;
+        isDragging = true;
     }
 
     // 마우스 클릭 위치 계산
@@ -91,7 +131,25 @@ function onDocumentMouseDown(event) {
         }
     }
 }
+function onDocumentMouseUp(event) {
+    isDragging = false;
+    selectedObject = null;
+}
+function updateCurve() {
+    if (controlPoints.length >= 3) {
+        if(curveObject) {
+            scene.remove(curveObject);
+        }
+        curveObject = drawCurve(controlPoints, 0x00ff00);
+    }
 
+    if (newControlPoints.length >= 3) {
+        if(newCurveObject) {
+            scene.remove(newCurveObject);
+        }
+        newCurveObject = drawCurve(newControlPoints, 0xffff00);
+    }
+}
 //added
 function createOpenKnotVector(n, p) {
     const m = n + p + 1;
