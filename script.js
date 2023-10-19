@@ -71,67 +71,211 @@ function onDocumentMouseDown(event) {
     } else {
         controlPoints.push(circle.position);
     }
-
-    //적절한 배열의 길이에 따라 B-spline 곡선 생성(기존)
+    //ADDED
     if (addingNewPoints) {
         if (newControlPoints.length >= 3) {
-            drawCurve(newControlPoints, 0xffff00, newCurveObject);
+            drawCurve(newControlPoints, 0xffff00, { object: newCurveObject });
         }
     } else {
         if (controlPoints.length >= 3) {
-            drawCurve(controlPoints, 0x00ff00, curveObject);
+            drawCurve(controlPoints, 0x00ff00, { object: curveObject });
         }
     }
+}
+    // //적절한 배열의 길이에 따라 B-spline 곡선 생성(기존)
+    // if (addingNewPoints) {
+    //     if (newControlPoints.length >= 3) {
+    //         drawCurve(newControlPoints, 0xffff00, newCurveObject);
+    //     }
+    // } else {
+    //     if (controlPoints.length >= 3) {
+    //         drawCurve(controlPoints, 0x00ff00, curveObject);
+    //     }
+    // }
     
+
+
+//added
+function createOpenKnotVector(n, p) {
+    const m = n + p + 1;
+    const knots = [];
+
+    for (let i = 0; i <= m; i++) {
+        if (i < p) {
+            knots.push(0);
+        } else if (i <= n) {
+            knots.push(i - p + 1);
+        } else {
+            knots.push(n - p + 2);
+        }
+    }
+    console.log("Knot vector:", knots);
+    return knots;
 }
 
-function drawCurve(points, color, curveObj) {        //기존
+// function createOpenKnotVector(n, p) {    //origin
+//     const m = n + p + 1;
+//     const knots = [];
+
+//     for (let i = 0; i <= m; i++) {
+//         if (i < p) {
+//             knots.push(0);
+//         } else if (i <= n) {
+//             knots.push(i - p + 1);
+//         } else {
+//             knots.push(n - p + 2);
+//         }
+//     }
+//     console.log("Knot vector:", knots);
+//     return knots;
+// }
+// // 수정된 drawCurve 함수
+// function drawCurve(points, color, curveObj) {
+//     const curvePoints = [];
+//     const n = points.length - 1;
+//     const p = 3;  // Cubic B-spline
+//     const uMax = n - p + 2;
+//     for (let u = 0; u <= uMax; u += 0.01) {
+//         curvePoints.push(computeBSpline(points, u));
+//     }
+
+//     if (curveObj) {
+//         scene.remove(curveObj); // 기존 곡선 제거
+//     }
+
+//     const curveGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+//     const curveMaterial = new THREE.LineBasicMaterial({ color });
+//     curveObj = new THREE.Line(curveGeometry, curveMaterial);
+//     scene.add(curveObj);
+// }
+
+// // 수정된 computeBSpline 함수
+// function computeBSpline(controlPoints, u) {
+//     const n = controlPoints.length - 1;
+//     let point = new THREE.Vector2();
+
+//     const knots = createOpenKnotVector(n, 3);
+
+//     for (let i = 0; i <= n; i++) {
+//         const Ni = N(i, 3, u, knots);  // k 값을 3으로 설정
+//         point.x += controlPoints[i].x * Ni;
+//         point.y += controlPoints[i].y * Ni;
+//     }
+//     if (isNaN(point.x) || isNaN(point.y)) {
+//         console.error("NaN detected in computeBSpline:", point, "at u =", u);
+//     }
+//     return point;
+// }
+
+// // 수정된 N 함수
+// function N(i, k, u, knots) {
+//     // Base case for the recursive function
+//     if (k === 0) {
+//         return (u >= knots[i] && u < knots[i + 1]) ? 1 : 0;
+//     }
+
+//     let term1 = 0;
+//     let term2 = 0;
+
+//     if (i + k < knots.length && knots[i + k] - knots[i] != 0) { // 조건 추가
+//         term1 = ((u - knots[i]) / (knots[i + k] - knots[i])) * N(i, k - 1, u, knots);
+//     }
+
+//     if (i + k + 1 < knots.length && knots[i + k + 1] - knots[i + 1] != 0) { // 조건 추가
+//         term2 = ((knots[i + k + 1] - u) / (knots[i + k + 1] - knots[i + 1])) * N(i + 1, k - 1, u, knots);
+//     }
+
+//     return term1 + term2;
+// }
+
+//ADDED
+function drawCurve(points, color, curveObjReference) {
     const curvePoints = [];
-    for (let u = 0; u <= points.length; u += 0.01) {
+    const n = points.length - 1;
+    const p = 3;  // Cubic B-spline
+    const uMax = n - p + 1;
+    for (let u = 0; u <= uMax; u += 0.01) {
         curvePoints.push(computeBSpline(points, u));
     }
 
-    if (curveObj) {
-        scene.remove(curveObj); // 기존 곡선 제거
+    // 기존 곡선 제거
+    if (curveObjReference && curveObjReference.object) {
+        scene.remove(curveObjReference.object);
     }
 
     const curveGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
     const curveMaterial = new THREE.LineBasicMaterial({ color });
-    curveObj = new THREE.Line(curveGeometry, curveMaterial);
+    const curveObj = new THREE.Line(curveGeometry, curveMaterial);
     scene.add(curveObj);
+
+    // 참조를 업데이트하여 다음 호출 시 이전 곡선을 찾을 수 있게 함
+    curveObjReference.object = curveObj;
 }
+
+
+
+// function drawCurve(points, color, curveObj) {    //origin
+//     const curvePoints = [];
+//     const n = points.length - 1;
+//     const p = 3;  // Cubic B-spline
+//     const uMax = n - p + 1;
+//     for (let u = 0; u <= uMax; u += 0.01) {
+//         curvePoints.push(computeBSpline(points, u));
+//     }
+
+//     if (curveObj) {
+//         scene.remove(curveObj); // 기존 곡선 제거
+//     }
+
+//     const curveGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+//     const curveMaterial = new THREE.LineBasicMaterial({ color });
+//     curveObj = new THREE.Line(curveGeometry, curveMaterial);
+//     scene.add(curveObj);
+// }
+
 
 
 function computeBSpline(controlPoints, u) { //기존!!
     const n = controlPoints.length - 1;
     let point = new THREE.Vector2();
 
-    const knots = [];
+    const knots=createOpenKnotVector(n,3)//added
 
-    // Create a uniform knot vector with duplicates at the beginning and end
-    for (let i = 0; i <= n + 3; i++) {
-        knots.push(i);
-    }
+
 
     for (let i = 0; i <= n; i++) {
         const Ni = N(i, 2, u, knots);
         point.x += controlPoints[i].x * Ni;
         point.y += controlPoints[i].y * Ni;
     }
-    
+    if (isNaN(point.x) || isNaN(point.y)) {
+        console.error("NaN detected in computeBSpline:", point, "at u =", u);
+    }
     return point;
 }
 
-
 function N(i, k, u, knots) {
+    // Base case for the recursive function
     if (k === 0) {
-        return (u >= knots[i] && u < knots[i + 1]) ? 1 : 0;
+        return (u >= knots[i] && u < knots[i+1]) ? 1 : 0;
     }
-    const a = (u - knots[i]) / (knots[i + k] - knots[i]) * (knots[i + k] !== knots[i] ? N(i, k - 1, u, knots) : 0);
-    const b = (knots[i + k + 1] - u) / (knots[i + k + 1] - knots[i + 1]) * (knots[i + k + 1] !== knots[i + 1] ? N(i + 1, k - 1, u, knots) : 0);
 
-    return a + b;
+    let term1 = 0;
+    let term2 = 0;
+
+    if (knots[i+k] - knots[i] != 0) {
+        term1 = ((u - knots[i]) / (knots[i+k] - knots[i])) * N(i, k-1, u, knots);
+    }
+
+    if (knots[i+k+1] - knots[i+1] != 0) {
+        term2 = ((knots[i+k+1] - u) / (knots[i+k+1] - knots[i+1])) * N(i+1, k-1, u, knots);
+    }
+
+    let result = term1 + term2;
+    
+    return result;
 }
+
 
 function animate() {
     requestAnimationFrame(animate);
