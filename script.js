@@ -6,7 +6,9 @@ let curveObject;
 let newCurveObject;
 let addingNewPoints = false;
 let newControlPoints = [];
-
+let controlWeights=[];
+let newControlWeights=[];
+let curves=[];
 
 init();
 animate();
@@ -67,17 +69,26 @@ function onDocumentMouseDown(event) {
     // 점을 적절한 배열에 추가
     if (addingNewPoints) {
         newControlPoints.push(circle.position);
+        newControlWeights.push(1.0);
 
     } else {
         controlPoints.push(circle.position);
+        controlWeights.push(1.0);
     }
-    //ADDED
     if (addingNewPoints) {
         if (newControlPoints.length >= 3) {
+            curves.forEach(curve => {
+                scene.remove(curve);
+            });
+            curves.length = 0;
             drawCurve(newControlPoints, 0xffff00, { object: newCurveObject });
         }
     } else {
         if (controlPoints.length >= 3) {
+            curves.forEach(curve => {
+                scene.remove(curve);
+            });
+            curves.length = 0;
             drawCurve(controlPoints, 0x00ff00, { object: curveObject });
         }
     }
@@ -106,15 +117,26 @@ function drawCurve(points, color, curveObjReference) {
     const curvePoints = [];
     const n = points.length - 1;
     const p = 3;  // Cubic B-spline
-    const uMax = n - p + 1;
+    const uMax = n - p + 2;
     for (let u = 0; u <= uMax; u += 0.01) {
-        curvePoints.push(computeBSpline(points, u));
+        curvePoints.push(computeNURBS(points,u));
+    }
+    if (curveObjReference && curveObjReference.object) {
+        scene.remove(curveObjReference.object);
+        const index = curves.indexOf(curveObjReference.object);
+        if (index !== -1) {
+            curves.splice(index, 1);
+        }
     }
 
     // 기존 곡선 제거
-    if (curveObjReference && curveObjReference.object) {
-        scene.remove(curveObjReference.object);
-    }
+    // if (curveObjReference && curveObjReference.object) {
+    //     scene.remove(curveObjReference.object);
+    //     curveObjReference.object = null;
+    // }
+    // for (let u=0; u<=uMax;u+=0.01){
+    //     curvePoints.push(computeNURBS(points,u));
+    // }
 
     const curveGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
     const curveMaterial = new THREE.LineBasicMaterial({ color });
@@ -123,27 +145,49 @@ function drawCurve(points, color, curveObjReference) {
 
     // 참조를 업데이트하여 다음 호출 시 이전 곡선을 찾을 수 있게 함
     curveObjReference.object = curveObj;
+    curves.push(curveObj)
 }
-
-
-function computeBSpline(controlPoints, u) { //기존!!
+function computeNURBS(controlPoints, u) {
     const n = controlPoints.length - 1;
     let point = new THREE.Vector2();
 
-    const knots=createOpenKnotVector(n,3)//added
+    const knots = createOpenKnotVector(n, 3);
 
-
+    // NURBS 계산 로직 추가 (예: 가중치를 고려하여 point를 계산)
 
     for (let i = 0; i <= n; i++) {
         const Ni = N(i, 2, u, knots);
         point.x += controlPoints[i].x * Ni;
         point.y += controlPoints[i].y * Ni;
     }
+
     if (isNaN(point.x) || isNaN(point.y)) {
-        console.error("NaN detected in computeBSpline:", point, "at u =", u);
+        console.error("NaN detected in computeNURBS:", point, "at u =", u);
     }
+    
     return point;
 }
+
+
+
+// function computeBSpline(controlPoints, u) { //기존!!
+//     const n = controlPoints.length - 1;
+//     let point = new THREE.Vector2();
+
+//     const knots=createOpenKnotVector(n,3)//added
+
+
+
+//     for (let i = 0; i <= n; i++) {
+//         const Ni = N(i, 2, u, knots);
+//         point.x += controlPoints[i].x * Ni;
+//         point.y += controlPoints[i].y * Ni;
+//     }
+//     if (isNaN(point.x) || isNaN(point.y)) {
+//         console.error("NaN detected in computeBSpline:", point, "at u =", u);
+//     }
+//     return point;
+// }
 
 function N(i, k, u, knots) {
     // Base case for the recursive function
