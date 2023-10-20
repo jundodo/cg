@@ -20,7 +20,7 @@ function init() {
     // 씬 생성
     scene = new THREE.Scene();
 
-    // 카메라 생성 (2D 환경을 위한 OrthographicCamera 사용)
+    // 카메라 생성
     const width = window.innerWidth;
     const height = window.innerHeight;
     camera = new THREE.OrthographicCamera(width / -2, width / 2, height / 2, height / -2, 1, 1000);
@@ -193,7 +193,7 @@ function computeNURBS(controlPoints, u) {
 
     const knots = createOpenKnotVector(n, 3);
 
-    // NURBS 계산 로직 추가 (예: 가중치를 고려하여 point를 계산)
+    // NURBS 계산 로직 추가
 
     for (let i = 0; i <= n; i++) {
         const Ni = N(i, 2, u, knots);
@@ -210,7 +210,6 @@ function computeNURBS(controlPoints, u) {
 
 
 function N(i, k, u, knots) {
-    // Base case for the recursive function
     if (k === 0) {
         return (u >= knots[i] && u < knots[i+1]) ? 1 : 0;
     }
@@ -260,51 +259,157 @@ function resetScene() {
     intersections.length = 0;
 }
 
+function segmentsIntersect(p1, q1, p2, q2) {
+    function orientation(p, q, r) {
+        let val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+        if (val == 0) return 0;
+        return (val > 0) ? 1 : 2;
+    }
+
+    let o1 = orientation(p1, q1, p2);
+    let o2 = orientation(p1, q1, q2);
+    let o3 = orientation(p2, q2, p1);
+    let o4 = orientation(p2, q2, q1);
+
+    if (o1 != o2 && o3 != o4) return true;
+
+    return false;
+}
+// function checkCurveIntersections() {
+//     for (let intersection of intersections){
+//         scene.remove(intersection);
+//     }
+//     intersections = [];
+
+//     if (!curveObject || !newCurveObject) {
+//         return;
+//     }
+
+//     let curvePoints = curveObject.geometry.attributes.position.array;
+//     let newCurvePoints = newCurveObject.geometry.attributes.position.array;
+
+//     for (let i = 0; i < curvePoints.length - 3; i+=3) {
+//         for (let j = 0; j < newCurvePoints.length - 3; j+=3) {
+//             let p1 = new THREE.Vector2(curvePoints[i], curvePoints[i+1]);
+//             let q1 = new THREE.Vector2(curvePoints[i+3], curvePoints[i+4]);
+//             let p2 = new THREE.Vector2(newCurvePoints[j], newCurvePoints[j+1]);
+//             let q2 = new THREE.Vector2(newCurvePoints[j+3], newCurvePoints[j+4]);
+
+//             if (segmentsIntersect(p1, q1, p2, q2)) {
+//                 // 교차점 시각화 (보간법을 사용해 교차점의 정확한 위치를 찾을 수도 있지만 여기선 단순화함)
+//                 const geometry = new THREE.CircleGeometry(5, 32);
+//                 const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+//                 const circle = new THREE.Mesh(geometry, material);
+//                 circle.position.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, 0);
+//                 scene.add(circle);
+//                 intersections.push(circle);
+//             }
+//         }
+//     }
+// }
 function checkCurveIntersections() {
     for (let intersection of intersections){
         scene.remove(intersection);
     }
-    intersections = [];  // 교차점 배열 초기화
+    intersections = [];
+
     if (!curveObject || !newCurveObject) {
-        return;  // 두 곡선 모두 존재해야 함
+        return;
     }
 
-    const threshold = 5;  // 허용할 거리 임계값 (작게 설정하면 더 정확한 교차점 탐지 가능)
-
-    // 두 곡선 모두를 샘플링
     let curvePoints = curveObject.geometry.attributes.position.array;
     let newCurvePoints = newCurveObject.geometry.attributes.position.array;
 
-    for (let i = 0; i < curvePoints.length; i+=3) {
-        for (let j = 0; j < newCurvePoints.length; j+=3) {
-            let distance = Math.sqrt(Math.pow(curvePoints[i] - newCurvePoints[j], 2) + Math.pow(curvePoints[i+1] - newCurvePoints[j+1], 2));
-            if (distance < threshold) {
-                intersections.push(new THREE.Vector2((curvePoints[i] + newCurvePoints[j]) / 2, (curvePoints[i+1] + newCurvePoints[j+1]) / 2));
-            }
-        }
-    }
+    for (let i = 0; i < curvePoints.length - 3; i+=3) {
+        for (let j = 0; j < newCurvePoints.length - 3; j+=3) {
+            let p1 = new THREE.Vector2(curvePoints[i], curvePoints[i+1]);
+            let q1 = new THREE.Vector2(curvePoints[i+3], curvePoints[i+4]);
+            let p2 = new THREE.Vector2(newCurvePoints[j], newCurvePoints[j+1]);
+            let q2 = new THREE.Vector2(newCurvePoints[j+3], newCurvePoints[j+4]);
 
-    // 교차점 시각화
-    // for (let intersection of intersections) {
-    //     const geometry = new THREE.CircleGeometry(5, 32);
-    //     const material = new THREE.MeshBasicMaterial({ color: 0xffffff });  // 교차점의 색상을 흰색으로 설정
-    //     const circle = new THREE.Mesh(geometry, material);
-    //     circle.position.set(intersection.x, intersection.y, 0);
-    //     scene.add(circle);
-    // }
-    for (let i = 0; i < curvePoints.length; i+=3) {
-        for (let j = 0; j < newCurvePoints.length; j+=3) {
-            let distance = Math.sqrt(Math.pow(curvePoints[i] - newCurvePoints[j], 2) + Math.pow(curvePoints[i+1] - newCurvePoints[j+1], 2));
-            if (distance < threshold) {
-                // 교차점 시각화
+            let intersectionPoint = lineIntersection(p1, q1, p2, q2);
+
+            if (intersectionPoint) {
                 const geometry = new THREE.CircleGeometry(5, 32);
-                const material = new THREE.MeshBasicMaterial({ color: 0xffffff });  // 교차점의 색상을 흰색으로 설정
+                const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
                 const circle = new THREE.Mesh(geometry, material);
-                circle.position.set((curvePoints[i] + newCurvePoints[j]) / 2, (curvePoints[i+1] + newCurvePoints[j+1]) / 2, 0);
+                circle.position.set(intersectionPoint.x, intersectionPoint.y, 0);
                 scene.add(circle);
-
-                intersections.push(circle);  // 교차점 객체를 배열에 추가 (참조 유지)
+                intersections.push(circle);
             }
         }
     }
 }
+
+function lineIntersection(p1, q1, p2, q2) {
+    const A1 = q1.y - p1.y;
+    const B1 = p1.x - q1.x;
+    const C1 = A1 * p1.x + B1 * p1.y;
+
+    const A2 = q2.y - p2.y;
+    const B2 = p2.x - q2.x;
+    const C2 = A2 * p2.x + B2 * p2.y;
+
+    const determinant = A1 * B2 - A2 * B1;
+
+    if (determinant == 0) {
+        return null; // parallel lines
+    } else {
+        let x = (B2 * C1 - B1 * C2) / determinant;
+        let y = (A1 * C2 - A2 * C1) / determinant;
+        if (isWithinBounds(x, y, p1, q1, p2, q2)) {
+            return new THREE.Vector2(x, y);
+        } else {
+            return null;
+        }
+    }
+}
+
+function isWithinBounds(x, y, p1, q1, p2, q2) {
+    return (x >= Math.min(p1.x, q1.x) && x <= Math.max(p1.x, q1.x) &&
+            y >= Math.min(p1.y, q1.y) && y <= Math.max(p1.y, q1.y) &&
+            x >= Math.min(p2.x, q2.x) && x <= Math.max(p2.x, q2.x) &&
+            y >= Math.min(p2.y, q2.y) && y <= Math.max(p2.y, q2.y));
+}
+
+
+// function checkCurveIntersections() {
+//     for (let intersection of intersections){
+//         scene.remove(intersection);
+//     }
+//     intersections = [];  // 교차점 배열 초기화
+//     if (!curveObject || !newCurveObject) {
+//         return;  // 두 곡선 모두 존재해야 함
+//     }
+
+//     const threshold = 5;  // 허용할 거리 임계값 (작게 설정하면 더 정확한 교차점 탐지 가능)
+
+//     // 두 곡선 모두를 샘플링
+//     let curvePoints = curveObject.geometry.attributes.position.array;
+//     let newCurvePoints = newCurveObject.geometry.attributes.position.array;
+
+//     for (let i = 0; i < curvePoints.length; i+=3) {
+//         for (let j = 0; j < newCurvePoints.length; j+=3) {
+//             let distance = Math.sqrt(Math.pow(curvePoints[i] - newCurvePoints[j], 2) + Math.pow(curvePoints[i+1] - newCurvePoints[j+1], 2));
+//             if (distance < threshold) {
+//                 intersections.push(new THREE.Vector2((curvePoints[i] + newCurvePoints[j]) / 2, (curvePoints[i+1] + newCurvePoints[j+1]) / 2));
+//             }
+//         }
+//     }
+
+//     for (let i = 0; i < curvePoints.length; i+=3) {
+//         for (let j = 0; j < newCurvePoints.length; j+=3) {
+//             let distance = Math.sqrt(Math.pow(curvePoints[i] - newCurvePoints[j], 2) + Math.pow(curvePoints[i+1] - newCurvePoints[j+1], 2));
+//             if (distance < threshold) {
+//                 // 교차점 시각화
+//                 const geometry = new THREE.CircleGeometry(5, 32);
+//                 const material = new THREE.MeshBasicMaterial({ color: 0xffffff });  // 교차점의 색상을 흰색으로 설정
+//                 const circle = new THREE.Mesh(geometry, material);
+//                 circle.position.set((curvePoints[i] + newCurvePoints[j]) / 2, (curvePoints[i+1] + newCurvePoints[j+1]) / 2, 0);
+//                 scene.add(circle);
+
+//                 intersections.push(circle);  
+//             }
+//         }
+//     }
+// }
